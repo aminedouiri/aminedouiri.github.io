@@ -249,7 +249,7 @@ ul {
 }
 
 .skills__subtitle {
-    font-size: var(--small-font-size);
+    font-size: 20px;
     color: var(--text-black-900);
 }
 
@@ -360,8 +360,7 @@ ul {
 }
 
 .qualification__button {
-    font-size: var(--h2-font-size);
-    font-weight: var(--font-medium);
+    font-size: var(--h1-font-size);
     cursor: pointer;
 }
 
