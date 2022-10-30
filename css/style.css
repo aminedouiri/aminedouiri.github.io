@@ -212,6 +212,15 @@ ul {
     cursor: pointer;
 }
 
+.aside .picture-container {
+    background-image: url('img.PNG');
+    border-radius: 50%;
+    -webkit-border-radius: 50%;
+    -moz-border-radius: 50%;
+    -ms-border-radius: 50%;
+    -o-border-radius: 50%;
+}
+
 .home {
     display: flex;
 }
