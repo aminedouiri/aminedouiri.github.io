@@ -43,7 +43,7 @@ ul {
 }
 .main-container {
     display: grid;
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: 20vw 1fr;
     grid-template-rows: 1fr;
     grid-template-areas: 'sidebar main-content';
 }
@@ -63,7 +63,7 @@ ul {
     grid-area: sidebar;
     background: var(--bg-black-100);
     padding: 30px;
-    width: 300px;
+    width: 20vw;
     height: 100vh;
     border-right: 1px solid var(--bg-black-50);
     position: fixed;
