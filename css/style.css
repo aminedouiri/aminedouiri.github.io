@@ -213,7 +213,7 @@ ul {
 }
 
 .aside .picture-container {
-    background-image: url(img.PNG);
+    background-image: url('img.PNG');
     border-radius: 50%;
     -webkit-border-radius: 50%;
     -moz-border-radius: 50%;
@@ -223,6 +223,9 @@ ul {
 
 .home {
     display: flex;
+}
+.active {
+    color: var(--skin-color);
 }
 /*-------------- SKILLS -----------------*/
 .section__title{
