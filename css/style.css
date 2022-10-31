@@ -224,7 +224,7 @@ ul {
 .home {
     display: flex;
 }
-.active {
+.nav li a.active {
     color: var(--skin-color);
 }
 /*-------------- SKILLS -----------------*/
@@ -392,14 +392,13 @@ ul {
 }
 
 .qualification__title {
-    font-size: var(--normal-font-size);
-    font-weight: var(--font-medium);
+    font-size: 18px;
     color: var(--text-black-900);
 }
 
 .qualification__subtitle {
     display: inline-block;
-    font-size: var(--small-font-size);
+    font-size: 17px;
     margin-bottom: 1rem;
     color: var(--text-black-900);
 }
