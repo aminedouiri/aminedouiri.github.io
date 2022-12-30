@@ -570,21 +570,29 @@ ul {
 
 
 
-@media only screen and (max-width: 1200px) and (min-width: 801px){
+@media only screen and (max-width: 1200px) and (min-width: 861px){
     /*Tablets [601px -> 1200px]*/
 
 }
-@media only screen and (max-width: 800px) and (min-width: 426px){
+@media only screen and (max-width: 860px) and (min-width: 426px){
 	/*Big smartphones [426px -> 600px]*/
     .skills__container {
         display: grid;
         grid-template-columns: 1fr;
     }
+    .menu__text, .footer__text {
+        display: none;
+    }
+
 }
-@media only screen and (max-width: 425px) and (min-width: 325px){
+@media only screen and (max-width: 425px) and (min-width: 100px){
 	/*Small smartphones [325px -> 425px]*/
     .skills__container {
         display: grid;
         grid-template-columns: 1fr;
     }
+    .menu__text, .footer__text {
+        display: none;
+    }
+
 }
