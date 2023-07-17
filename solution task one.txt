@@ -1,0 +1,31 @@
+public function getCitiesOwnedByMember(Request $request)
+    {
+        $EmUser = EmUser::find($request->user()->id)?->first();
+        $cities = $EmUser?->em_cities()
+                         ->select('uuid', 'country', 'name', 'photo_url');
+
+        if($request->filterBy === 'Most popular') {
+            $cities = $cities->orderBy('tier', 'asc')
+                             ->orderBy('importance_osm', 'desc');
+        }
+        if($request->filterBy === 'Latest') {
+            $cities = $cities->orderBy('cities.id', 'desc');
+        }
+        $cities = $cities->get();
+
+        $cities = $cities?->map(function($city) {
+            $country = $city?->em_country()->select('id', 'name', 'iso2')?->first();
+            $nft_url = $country?->em_country_ipfs()->select('nft_url')?->first()?->nft_url;
+            return [
+                'uuid' => $city->uuid,
+                'countryCity' => $city->country,
+                'nftUrl' => $nft_url,
+                'nameCity' => $city->name,
+                'nameCountry' => $country->name,
+                'iso2Country' => $country->iso2,
+                'flageImageUrlCity' => $city->photo_url,
+            ];
+        });
+
+        return $this->sendSuccessResponse($cities);
+    }
