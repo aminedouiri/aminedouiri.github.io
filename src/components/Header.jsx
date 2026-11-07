@@ -26,7 +26,7 @@ export default function Header({ soundOn, onSound, onHome, onFrameworks, fwOpen,
           <SpeakerIcon /><span className="snd-lbl">{soundOn ? "Sound on" : "Sound off"}</span>
         </button>
         <button className="btn ghost" type="button" aria-expanded={fwOpen} onClick={onFrameworks}>Frameworks</button>
-        <button className="btn ghost" id="techBtn" type="button" aria-haspopup="true" aria-expanded={techOpen} onClick={onTech}>Tech<Chevron /></button>
+        <button className="btn ghost tech-btn" id="techBtn" type="button" aria-haspopup="true" aria-expanded={techOpen} onClick={onTech}>Tech<Chevron /></button>
         <button className="btn solid" type="button" onClick={onContact}>Contact</button>
       </div>
     </header>

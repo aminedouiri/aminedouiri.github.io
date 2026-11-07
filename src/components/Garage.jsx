@@ -1,5 +1,6 @@
 import { VEHICLES } from "../three/world/vehicles.js";
-import { WORLDS } from "../three/world/themes.js";
+import Badge from "./Badge.jsx";
+import { tech } from "../data/tech.js";
 
 /* Simple original line icons (24×24). */
 const ICONS = {
@@ -10,17 +11,19 @@ const ICONS = {
 };
 
 /**
- * Right-hand picker: choose what you drive and which world you drive in.
- * On phones it collapses to two buttons that cycle through the options.
+ * Right-hand picker: choose what you drive, and jump straight to any technology.
+ * On phones it collapses to one button that cycles the vehicle (tech lives in the header menu there).
  */
-export default function Garage({ vehicle, world, onVehicle, onWorld }) {
+export default function Garage({ vehicle, onVehicle, activeTech = -1, onTech }) {
   const cycle = (list, id) => list[(list.findIndex((x) => x.id === id) + 1) % list.length].id;
   const v = VEHICLES.find((x) => x.id === vehicle) || VEHICLES[0];
-  const w = WORLDS.find((x) => x.id === world) || WORLDS[0];
-  const swatch = (x) => ({ background: `linear-gradient(135deg, ${x.swatch[0]}, ${x.swatch[1]})` });
+  // entries that only reuse another landmark (GitHub Actions, GitLab CI → CI/CD) get no badge of their own
+  const items = tech.map((t, k) => ({ t, k })).filter(({ t }) => !t.alias);
+  const aliasOf = activeTech >= 0 && tech[activeTech].alias;
+  const active = aliasOf ? tech.findIndex((t) => t.id === aliasOf) : activeTech;
 
   return (
-    <aside className="garage" aria-label="Vehicle and world">
+    <aside className="garage" aria-label="Vehicle and technologies">
       <div className="g-full">
         <div className="g-group">
           <span className="mono g-lbl">Ride <b>{v.label}</b></span>
@@ -33,11 +36,11 @@ export default function Garage({ vehicle, world, onVehicle, onWorld }) {
           </div>
         </div>
         <div className="g-group">
-          <span className="mono g-lbl">World <b>{w.label}</b></span>
-          <div className="g-row">
-            {WORLDS.map((x) => (
-              <button key={x.id} className={"g-btn g-sw" + (x.id === world ? " on" : "")} onClick={() => onWorld(x.id)} title={x.label} aria-label={x.label} aria-pressed={x.id === world}>
-                <i style={swatch(x)} />
+          <span className="mono g-lbl">Tech <b>{active >= 0 ? tech[active].short : `${items.length} items`}</b></span>
+          <div className="g-row g-tech">
+            {items.map(({ t, k }) => (
+              <button key={t.id} className={"g-btn g-tb" + (k === active ? " on" : "")} onClick={() => onTech(k)} title={t.short} aria-label={`Go to ${t.short}`} aria-pressed={k === active}>
+                <Badge tech={t} />
               </button>
             ))}
           </div>
@@ -47,9 +50,6 @@ export default function Garage({ vehicle, world, onVehicle, onWorld }) {
       <div className="g-compact">
         <button className="g-btn on" onClick={() => onVehicle(cycle(VEHICLES, vehicle))} aria-label={`Ride: ${v.label}. Tap to change`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{ICONS[v.id]}</svg>
-        </button>
-        <button className="g-btn g-sw on" onClick={() => onWorld(cycle(WORLDS, world))} aria-label={`World: ${w.label}. Tap to change`}>
-          <i style={swatch(w)} />
         </button>
       </div>
     </aside>

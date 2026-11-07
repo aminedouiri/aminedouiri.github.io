@@ -20,20 +20,19 @@ import { docker } from "./tools/docker.js";
 import { terraform } from "./tools/terraform.js";
 import { cicd } from "./tools/cicd.js";
 import { argocd } from "./tools/argocd.js";
-import { prometheus } from "./tools/prometheus.js";
-import { opentelemetry } from "./tools/opentelemetry.js";
-import { grafana } from "./tools/grafana.js";
 import { googleCloud } from "./tools/googleCloud.js";
 import { proxmox } from "./tools/proxmox.js";
 import { vmware } from "./tools/vmware.js";
 import { networking } from "./tools/networking.js";
+import { observability } from "./tools/observability.js";
+import { linux } from "./tools/linux.js";
 
 /** id (from src/data/tech.js) → shape builder */
 export const SHAPES = {
   loop: devopsLoop, calms, dora, sre: srePyramid, ways: threeWays, mlops, devsecops,
   k8s: kubernetes, docker, tf: terraform, cicd, argo: argocd,
-  prom: prometheus, otel: opentelemetry, graf: grafana, gcp: googleCloud,
-  proxmox, vmware, net: networking,
+  gcp: googleCloud,
+  proxmox, vmware, net: networking, obs: observability, linux,
 };
 
 const NEAR_ROW = 8, FAR_ROW = 15.5, SCALE = 0.58, BIG_SCALE = 0.85;
@@ -49,11 +48,16 @@ export function buildLandmarks(w) {
   const { scene, curve, stopT, ROAD_W, data } = w;
   const last = stopT.length - 1;
 
-  // three slots per gap between stops, alternating near / far row
+  // slots per gap between stops (3, or more when there are more landmarks), alternating near / far row
+  const needed = data.tech.filter((tc) => !tc.alias && !tc.big && SHAPES[tc.id]).length;
+  const per = Math.max(3, Math.ceil(needed / last));
+  const fracs = per === 3 ? [0.22, 0.5, 0.78] : Array.from({ length: per }, (_, k) => (k + 1) / (per + 1));
   const slots = [];
   for (let g = 0; g < last; g++) {
-    [0.22, 0.5, 0.78].forEach((f, k) => slots.push({ t: stopT[g] + (stopT[g + 1] - stopT[g]) * f, row: k % 2 }));
+    fracs.forEach((f, k) => slots.push({ t: stopT[g] + (stopT[g + 1] - stopT[g]) * f, row: k % 2 }));
   }
+  // spread the landmarks evenly over the slots (when there are spare slots), alternating near / far row
+  const pick = (i) => (per === 3 ? slots[i % slots.length] : { t: slots[Math.floor((i * slots.length) / needed)].t, row: i % 2 });
 
   const out = [];
   let si = 0;
@@ -62,7 +66,7 @@ export function buildLandmarks(w) {
     if (tc.alias || !shape) { out[k] = null; return; }
     let t, off, scale;
     if (tc.big) { t = 0.012; off = ROAD_W + 12; scale = BIG_SCALE; }
-    else { const s = slots[si++ % slots.length]; t = s.t; off = ROAD_W + (s.row ? FAR_ROW : NEAR_ROW); scale = SCALE; }
+    else { const s = pick(si++); t = s.t; off = ROAD_W + (s.row ? FAR_ROW : NEAR_ROW); scale = SCALE * (tc.size || 1); }
 
     const p = curve.getPointAt(t), tg = curve.getTangentAt(t);
     const n = new THREE.Vector3(-tg.z, 0, tg.x);            // right-hand side of the road
@@ -86,14 +90,15 @@ export function buildLandmarks(w) {
     g.scale.setScalar(scale);
     g.traverse((o) => { o.userData.tech = k; });
     scene.add(g);
-    w.solids.push({ x: g.position.x, z: g.position.z, r: tc.big ? 3.4 : 2.1 });
+    w.solids.push({ x: g.position.x, z: g.position.z, r: tc.big ? 3.4 : 2.1 * (tc.size || 1) });
 
     const toRoad = n.clone().multiplyScalar(-1);
     const height = (title.position.y + 2.4) * scale;           // ground → top of the badge
     const width = 6.6 * scale;                                   // pedestal / title width
     // park beside the pedestal (along the road side), so the close-up can stay tight on the shape
     const side = tg.clone().setY(0).normalize();
-    const park = g.position.clone().addScaledVector(side, -(3 * scale * FOCUS_ZOOM + 0.9)).addScaledVector(toRoad, 1.2);
+    // (parkGap: extra room for shapes that reach further towards the parking side)
+    const park = g.position.clone().addScaledVector(side, -(3 * scale * FOCUS_ZOOM + 0.9 + (tc.parkGap || 0))).addScaledVector(toRoad, 1.2);
     park.y = 0;
     out[k] = {
       g, t, toRoad, park, height, width,

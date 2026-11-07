@@ -169,7 +169,10 @@ const InfoPanel = forwardRef(function InfoPanel({ view, face, onFace, minimised,
     const t = tech[shown.index];
     content = (<>
       <div className="xp-head">
-        <div className="xp-eyebrow"><span className="xp-chip ghost mono">{t.cat}</span><span className="xp-num mono">TECH</span></div>
+        <div className="xp-eyebrow">
+          <span className="xp-chip ghost mono">{t.cat}</span><span className="xp-num mono">TECH</span>
+          <button className="xp-min" type="button" aria-label={minimised ? "Expand details" : "Collapse details (diagram uses the whole page)"} title={minimised ? "Expand details" : "Collapse: give the diagram the whole page"} onClick={onToggleMin}>{minimised ? "+" : "−"}</button>
+        </div>
         <div className="xp-tt"><Badge tech={t} big /><h2 className="xp-title"><em>{t.short}</em></h2></div>
         <p className="xp-sub">How I use it</p>
       </div>
@@ -177,7 +180,7 @@ const InfoPanel = forwardRef(function InfoPanel({ view, face, onFace, minimised,
     </>);
   }
 
-  const cls = ["xp", open && "show", minimised && shown?.type === "stop" && "min"].filter(Boolean).join(" ");
+  const cls = ["xp", open && "show", minimised && "min"].filter(Boolean).join(" ");
   return (
     <section className={cls} aria-live="polite" aria-label="Details">
       <div className="xp-in" ref={(el) => { inner.current = el; if (ref) ref.current = el; }}>{content}</div>

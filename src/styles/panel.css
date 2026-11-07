@@ -52,6 +52,13 @@
 .xp-min:hover{background:var(--text);color:var(--ink)}
 .xp.min .xp-tabs,.xp.min .xp-body,.xp.min .xp-sub{display:none}
 .xp.min .xp-in{padding-bottom:14px}
+/* collapsed: a slim title strip, so the 3D diagram can use the whole page */
+.xp.min{width:auto;max-width:min(370px,60vw)}
+.xp.min .xp-in{padding:12px 14px 12px}
+.xp.min .xp-head{gap:6px}
+.xp.min .xp-eyebrow .xp-chip:not(:first-child){display:none}
+.xp.min .xp-title{font-size:18px}
+.xp.min .tb.big{width:30px;height:30px;font-size:10.5px;border-radius:8px}
 .link{position:fixed;inset:0;width:100%;height:100%;z-index:14;pointer-events:none;opacity:0;transition:opacity .4s}
 .link.show{opacity:1}
 .link line{stroke:var(--blue);stroke-width:1.5;stroke-dasharray:2000;stroke-dashoffset:0;filter:drop-shadow(0 0 4px rgba(91,140,255,.8))}

@@ -16,6 +16,7 @@ import DrivePad from "./components/DrivePad.jsx";
 import Hud from "./components/Hud.jsx";
 import FrameworksPage from "./components/FrameworksPage.jsx";
 import Garage from "./components/Garage.jsx";
+import LoupeButton from "./components/LoupeButton.jsx";
 
 /* Remember the chosen vehicle and world between visits (ignored if storage is blocked). */
 const saved = (key, fallback) => { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } };
@@ -23,14 +24,20 @@ const save = (key, value) => { try { localStorage.setItem(key, value); } catch {
 
 /**
  * The part of the screen not covered by the header, timeline, info panel or picker (px).
+ * On desktop the panel's column is always reserved, so framing doesn't jump when the panel opens.
  * The 3D view centres landmark close-ups inside it.
  */
 function getSafeArea() {
   const W = window.innerWidth, H = window.innerHeight, mobile = W <= 900;
   const rect = (sel) => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return r.width ? r : null; };
-  const head = rect(".head"), dock = rect(".dock"), panel = rect(".xp.show .xp-in"), garage = rect(".garage"), hud = rect(".hud");
+  const collapsed = !!document.querySelector(".xp.min");
+  const head = rect(".head"), dock = rect(".dock"), garage = rect(".garage"), hud = rect(".hud");
+  // a collapsed card is only a slim strip at the top: the diagram gets the full width below it
+  const strip = collapsed ? rect(".xp.show .xp-in") : null;
+  const panel = collapsed ? null : rect(".xp.show .xp-in") || (mobile ? null : rect(".xp"));
   const area = { left: 0, right: W, top: head ? head.bottom : 70, bottom: dock ? dock.top : H - 80 };
   if (hud && !mobile) area.top = Math.max(area.top, hud.bottom * 0.6);
+  if (strip) { if (mobile) area.bottom = Math.min(area.bottom, strip.top); else area.top = Math.max(area.top, strip.bottom - 10); }
   if (panel) { if (mobile) area.bottom = Math.min(area.bottom, panel.top); else area.left = Math.max(area.left, panel.right); }
   if (garage) { if (mobile) area.top = Math.max(area.top, garage.bottom); else area.right = Math.min(area.right, garage.left); }
   return area;
@@ -56,8 +63,9 @@ export default function App() {
   const [soundOn, setSoundOn] = useState(false);
   const [minimised, setMinimised] = useState(false);
   const [webglError, setWebglError] = useState(false);
+  const [loupe, setLoupe] = useState({ on: false, zoom: 2.5 });
   const [vehicle, setVehicle] = useState(() => saved("pf.vehicle", "car"));
-  const [worldId, setWorldId] = useState(() => saved("pf.world", "night"));
+  const worldId = saved("pf.world", "night");
 
   /* ---------- create the 3D world once ---------- */
   useEffect(() => {
@@ -78,6 +86,7 @@ export default function App() {
           else if (type === "mode") setManual(p.manual);
           else if (type === "hud") { setHud(p); sound.current.engine(p.speed / 9); }
           else if (type === "smash") sound.current.smash(p.wide);
+          else if (type === "loupe") setLoupe(p);
         },
         onFrame: ({ progress, link: point }) => {
           timeline.current?.setProgress(progress);
@@ -102,6 +111,7 @@ export default function App() {
   const goStop = useCallback((i) => world.current?.goStop(i), []);
   const goTech = useCallback((k) => { setTechOpen(false); world.current?.goTech(k); }, []);
   const seeIn3D = useCallback((id) => { setFwOpen(false); const k = tech.findIndex((t) => t.id === id); if (k >= 0) world.current?.goTech(k); }, []);
+  const toggleLoupe = useCallback(() => { const w = world.current; if (w) w.setLoupe(!w.loupe.on); }, []);
   const toggleSound = useCallback(() => setSoundOn(sound.current.setOn(!sound.current.on)), []);
   const drive = useCallback((name, on) => { world.current?.setControl(name, on); setHeld((h) => ({ ...h, [name]: on })); }, []);
   const onLoaded = useCallback(() => { loaded.current = true; world.current?.goStop(0); }, []);
@@ -113,7 +123,8 @@ export default function App() {
     onTech: () => setTechOpen((o) => !o),
     onFrameworks: () => setFwOpen((o) => !o),
     onSound: toggleSound,
-    onEscape: () => { setFwOpen(false); setTechOpen(false); },
+    onLoupe: toggleLoupe,
+    onEscape: () => { setFwOpen(false); setTechOpen(false); if (world.current?.loupe.on) world.current.setLoupe(false); },
     onBlur: () => { world.current?.releaseControls(); setHeld({}); },
   });
 
@@ -167,10 +178,12 @@ export default function App() {
 
       <Hud hud={hud} />
       <Garage
-        vehicle={vehicle} world={worldId}
+        vehicle={vehicle}
         onVehicle={(id) => { setVehicle(id); save("pf.vehicle", id); world.current?.setVehicle(id); sound.current?.setRide(id); }}
-        onWorld={(id) => { setWorldId(id); save("pf.world", id); world.current?.setWorld(id); }}
+        activeTech={view?.type === "tech" ? view.index : -1}
+        onTech={goTech}
       />
+      <LoupeButton on={loupe.on} zoom={loupe.zoom} onToggle={toggleLoupe} />
       <DrivePad manual={manual} held={held} onControl={drive} />
       <Timeline ref={timeline} index={stopIndex} onGo={goStop} />
       <Loader onDone={onLoaded} />

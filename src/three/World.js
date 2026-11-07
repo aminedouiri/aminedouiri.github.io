@@ -17,6 +17,7 @@ import anime from "animejs";
 import { buildEnvironment, applyTheme, FOG_NEAR, FOG_FAR } from "./world/environment.js";
 import { WORLDS } from "./world/themes.js";
 import { ROAD_W, makeCurve, makeRoute, buildRoad } from "./world/road.js";
+import { Loupe } from "./utils/loupe.js";
 import { buildCity } from "./world/city.js";
 import { Checkpoints } from "./world/checkpoints.js";
 import { InfoCubes } from "./world/infoCubes.js";
@@ -65,7 +66,7 @@ export class World {
     this.vel = 0; this.lat = 0; this.steer = 0; this.shake = 0; this.dir = 1; this.spd = 0; this.hits = 0;
     this.techFocus = -1; this.nearTech = -1; this.focusOn = -1; this.fogMix = 0;
     this.mouse = { x: 0, y: 0, tx: 0, ty: 0 };
-    this.view = null; this.viewKey = ""; this.parkedAt = -1;
+    this.view = null; this.viewKey = ""; this.parkedAt = -1; this.camSettled = false;
     this.lookFix = new THREE.Vector3();
     this.lastHud = 0;
 
@@ -74,6 +75,7 @@ export class World {
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.1;
+    this.loupe = new Loupe(this.renderer);
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
 
@@ -112,7 +114,19 @@ export class World {
     this.dummy = new THREE.Object3D();
 
     this.onResize = () => this.resize();
-    this.onPointer = (e) => { this.mouse.tx = e.clientX / window.innerWidth - 0.5; this.mouse.ty = e.clientY / window.innerHeight - 0.5; };
+    this.onPointer = (e) => {
+      this.mouse.tx = e.clientX / window.innerWidth - 0.5; this.mouse.ty = e.clientY / window.innerHeight - 0.5;
+      this.loupe.x = e.clientX; this.loupe.y = e.clientY;
+      this.loupe.inside = e.target === canvas;                 // hide the lens over panels and buttons
+    };
+    this.onLeave = () => { this.loupe.inside = false; };
+    this.onWheel = (e) => {                                    // scroll to change the lens magnification
+      if (!this.loupe.on) return;
+      e.preventDefault();
+      this.emit("loupe", { on: true, zoom: this.loupe.setZoom(this.loupe.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)) });
+    };
+    canvas.addEventListener("pointerleave", this.onLeave);
+    canvas.addEventListener("wheel", this.onWheel, { passive: false });
     this.onClick = (e) => this.pick(e);
     window.addEventListener("resize", this.onResize);
     window.addEventListener("pointermove", this.onPointer);
@@ -132,6 +146,9 @@ export class World {
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.onResize);
     window.removeEventListener("pointermove", this.onPointer);
+    this.renderer.domElement.removeEventListener("pointerleave", this.onLeave);
+    this.renderer.domElement.removeEventListener("wheel", this.onWheel);
+    this.loupe.dispose();
     this.renderer.domElement.removeEventListener("click", this.onClick);
     anime.remove([this.drive, this.free]);
     this.renderer.dispose();
@@ -215,6 +232,13 @@ export class World {
 
   /** Drive controls: name = up | down | left | right. */
   setControl(name, on) { if (name in this.ctl) this.ctl[name] = on; }
+  /** Turn the magnifying lens on / off (it follows the pointer; scroll changes the zoom). */
+  setLoupe(on) {
+    this.loupe.on = on;
+    this.renderer.domElement.style.cursor = on ? "zoom-in" : "";
+    this.emit("loupe", { on, zoom: this.loupe.zoom });
+  }
+
   releaseControls() { Object.keys(this.ctl).forEach((k) => { this.ctl[k] = false; }); }
 
   resize() {
@@ -337,8 +361,16 @@ export class World {
       setZoom(lm, reduce ? want : lm.zoom + (want - lm.zoom) * Math.min(1, dt * 4));
     });
     this.fogMix += ((k >= 0 ? 1 : 0) - this.fogMix) * Math.min(1, dt * 3);
-    this.scene.fog.near = FOG_NEAR + (9 - FOG_NEAR) * this.fogMix;
-    this.scene.fog.far = FOG_FAR + (36 - FOG_FAR) * this.fogMix;
+    // in focus the fog starts just behind the landmark (camera distance + its radius), so the diagram itself
+    // stays perfectly clear and only the world behind it fades out
+    if (focused) {
+      if (!focused.radius) focused.radius = focused.bounds.getSize(new THREE.Vector3()).length() / 2 * focused.scale;
+      const d = this.camPos.distanceTo(focused.center), r = focused.radius * focused.zoom;
+      this.fogNear = d + r; this.fogFar = d + r + 30;
+    }
+    const near = this.fogNear ?? 9, far = this.fogFar ?? 36;
+    this.scene.fog.near = FOG_NEAR + (near - FOG_NEAR) * this.fogMix;
+    this.scene.fog.far = FOG_FAR + (far - FOG_FAR) * this.fogMix;
   }
 
   setView(view) {
@@ -372,6 +404,7 @@ export class World {
     const link = this.screenPoint(this.view ? (this.view.type === "tech" ? this.landmarks[this.view.index]?.center : this.cubes.items[this.view.index]?.center) : null);
     this.keepCarVisible(cp, dt);
     this.renderer.render(this.scene, this.camera);
+    this.loupe.render(this.scene, this.camera);
 
     const span = this.stopT[this.stopT.length - 1] - this.stopT[0];
     this.onFrame({ progress: clamp((t - this.stopT[0]) / span, 0, 1) * 100, link });
@@ -427,7 +460,10 @@ export class World {
     });
     const sp = this.stopPts[this.index];
     const atStop = sp && Math.hypot(cp.x - sp.x, cp.z - sp.z) < 2.5 && Math.abs(this.vel) < 1.5;
-    if (this.nearTech >= 0) this.setView({ type: "tech", index: this.nearTech });
+    // wait for the camera to finish framing before opening the panel, so the landmark is never behind it mid-move
+    const showing = this.view?.type === "tech" && this.view.index === this.nearTech;
+    if (this.nearTech >= 0 && (this.manual || this.camSettled || showing)) this.setView({ type: "tech", index: this.nearTech });
+    else if (this.nearTech >= 0) this.setView(null);
     else if (atStop && this.cubes.items[this.index]?.visited) this.setView({ type: "stop", index: this.index });
     else this.setView(null);
   }
@@ -476,6 +512,7 @@ export class World {
     this.wantLook = look.clone();
     look.add(this.lookFix);
     this.camPos.lerp(wantPos, ck); this.camLook.lerp(look, ck);
+    this.camSettled = tgt >= 0 && this.camPos.distanceTo(wantPos) < 0.6 && this.camLook.distanceTo(look) < 0.6;
     camera.position.copy(this.camPos);
     if (this.parkedAt >= 0) this.shake = 0;
     if (this.shake > 0) {
@@ -569,7 +606,8 @@ export class World {
     let L = 40, R = window.innerWidth - 40, T = 96, B = window.innerHeight - 110;
     const r = this.view ? this.getPanelRect() : null;
     if (r) { if (isMobile()) B = Math.min(B, r.top - 20); else L = Math.max(L, r.right + 40); }
-    if (this.parkedAt >= 0) return;                         // parked: keep the framing steady
+    // parked: the landmark framing already shows the car, so ease any leftover correction out
+    if (this.parkedAt >= 0) { this.lookFix.multiplyScalar(1 - Math.min(1, dt * 3)); return; }
     const out = v.z > 1 || sx < L || sx > R || sy < T || sy > B;
     if (out) this.lookFix.lerp(cp.clone().setY(0.4).sub(this.wantLook), Math.min(1, dt * 4));
     else this.lookFix.multiplyScalar(1 - Math.min(1, dt * 0.35));

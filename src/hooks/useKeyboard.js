@@ -5,9 +5,9 @@ const DRIVE_KEYS = { arrowup: "up", w: "up", arrowdown: "down", s: "down", arrow
 /**
  * Keyboard shortcuts.
  *   WASD / arrows  drive        N / P  next / previous stop
- *   T  tech menu   F  frameworks   M  sound   Esc  close overlays
+ *   T  tech menu   F  frameworks   M  sound   Z  zoom lens   Esc  close overlays
  */
-export function useKeyboard({ onDrive, onNext, onPrev, onTech, onFrameworks, onSound, onEscape, onBlur }) {
+export function useKeyboard({ onDrive, onNext, onPrev, onTech, onFrameworks, onSound, onLoupe, onEscape, onBlur }) {
   useEffect(() => {
     const typing = (e) => e.target.closest && e.target.closest("input, textarea, [contenteditable]");
     const handle = (e, down) => {
@@ -20,6 +20,7 @@ export function useKeyboard({ onDrive, onNext, onPrev, onTech, onFrameworks, onS
       else if (k === "t") onTech();
       else if (k === "f") onFrameworks();
       else if (k === "m") onSound();
+      else if (k === "z") onLoupe?.();
       else if (k === "escape") onEscape();
     };
     const kd = (e) => handle(e, true), ku = (e) => handle(e, false);
@@ -31,5 +32,5 @@ export function useKeyboard({ onDrive, onNext, onPrev, onTech, onFrameworks, onS
       window.removeEventListener("keyup", ku);
       window.removeEventListener("blur", onBlur);
     };
-  }, [onDrive, onNext, onPrev, onTech, onFrameworks, onSound, onEscape, onBlur]);
+  }, [onDrive, onNext, onPrev, onTech, onFrameworks, onSound, onLoupe, onEscape, onBlur]);
 }
