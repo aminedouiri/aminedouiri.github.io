@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useRef, useState } from "react";
 import anime from "animejs";
 import Badge from "./Badge.jsx";
 import { profile } from "../data/profile.js";
-import { jobs, stack } from "../data/experience.js";
+import { stack } from "../data/experience.js";
 import { tech } from "../data/tech.js";
 import { stops, FACE_LABELS } from "../data/stops.js";
 import { scramble } from "../lib/scramble.js";
@@ -101,12 +101,9 @@ function StopBody({ index, face }) {
 
 function TechBody({ index }) {
   const t = tech[index];
-  const has = (a, b) => a.toLowerCase().includes(b.toLowerCase());
-  const usedIn = jobs.filter((j) => j.stack.some((s) => has(t.short, s) || has(s, t.short))).map((j) => j.company);
   return (<>
     <p className="xp-lead">{t.use}</p>
     {t.parts && <Grid items={t.parts} />}
-    <KV rows={[["Category", t.cat], ["Used in", usedIn.length ? usedIn.join(", ") : "[Your projects]"]]} />
   </>);
 }
 
