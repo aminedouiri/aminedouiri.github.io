@@ -22,6 +22,8 @@ function CopyEmail() {
 function ContactActions() {
   return (
     <div className="xp-actions">
+      <a className="btn blue" href={profile.whatsapp.url} target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>
+      <a className="btn blue" href={profile.telegram.url} target="_blank" rel="noopener noreferrer">Telegram ↗</a>
       <CopyEmail />
       <a className="btn ghost" href={profile.linkedin.url} target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
       <a className="btn ghost" href={profile.github.url} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
@@ -88,10 +90,10 @@ function StopBody({ index, face }) {
     <p className="xp-lead big">Always learning the <em>next</em> tool.</p>,
   ][face];
   return [
-    <><p className="xp-lead">I usually reply within one working day.</p><ContactActions /></>,
+    <><p className="xp-lead">Message me on WhatsApp or Telegram, or send an email. I usually reply within one working day.</p><ContactActions /></>,
+    <><KV rows={[["WhatsApp", profile.whatsapp.label], ["Telegram", profile.telegram.label]]} /><ContactActions /></>,
     <><KV rows={[["Email", profile.email], ["LinkedIn", profile.linkedin.label]]} /><ContactActions /></>,
-    <KV rows={[["GitHub", profile.github.label], ["Based in", profile.location]]} />,
-    <><p className="xp-lead big">Your next platform could be <em>my next stop</em>.</p><ContactActions /></>,
+    <><KV rows={[["GitHub", profile.github.label], ["Based in", profile.location]]} /><ContactActions /></>,
   ][face];
 }
 

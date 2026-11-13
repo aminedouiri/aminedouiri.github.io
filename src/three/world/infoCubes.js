@@ -1,5 +1,6 @@
 /*
- * Experience cubes: one floating cube per stop, on the LEFT of the road.
+ * Experience cubes: one floating cube per stop, on the LEFT of the road
+ * (the Contact stop is a giant phone instead: it flips to show each page).
  * Faces: 0 front, 1 right, 2 back, 3 left (the four panel tabs), 4 top (stop number), 5 bottom.
  */
 import * as THREE from "three";
@@ -37,6 +38,7 @@ export class InfoCubes {
   }
 
   build(i) {
+    if (this.w.data.stops[i].kind === "contact") return this.buildPhone(i);
     const { scene, curve, stopT, ROAD_W, renderer } = this.w;
     const p = curve.getPointAt(stopT[i]), tg = curve.getTangentAt(stopT[i]);
     const left = new THREE.Vector3(tg.z, 0, -tg.x).normalize();
@@ -110,6 +112,74 @@ export class InfoCubes {
     return { grp, holder, spin, orbit, halo, stripMat, mats, canvases, textures, center: center.clone().setY(holder.position.y), baseY: holder.position.y, phase: i * 1.7, turn: 0, visited: false };
   }
 
+  /** The Contact stop: a giant smartphone with app icons and signal waves; it flips to change page. */
+  buildPhone(i) {
+    const { scene, curve, stopT, ROAD_W, renderer } = this.w;
+    const p = curve.getPointAt(stopT[i]), tg = curve.getTangentAt(stopT[i]);
+    const left = new THREE.Vector3(tg.z, 0, -tg.x).normalize();
+    const center = p.clone().addScaledVector(tg, 5).addScaledVector(left, ROAD_W + 3.2);
+    center.y = 0;
+    const cam = this.stopCamera(i);
+    const aniso = renderer.capabilities.getMaxAnisotropy();
+    const canvases = [], textures = [];
+    for (let f = 0; f < 6; f++) { const cv = document.createElement("canvas"); cv.width = cv.height = CS; canvases.push(cv); textures.push(canvasTexture(cv, aniso)); }
+
+    const PW = 2.65, PH = 4.05, PD = 0.24;
+    const grp = new THREE.Group(); grp.position.copy(center); grp.lookAt(cam.x, 0, cam.z);
+    const holder = new THREE.Group(); holder.position.y = BASE + PH / 2 + 0.05; grp.add(holder);
+    const spin = new THREE.Group(); holder.add(spin);
+
+    // rounded phone body with a glowing rim
+    const shape = new THREE.Shape(), r = 0.42, w = PW / 2, h = PH / 2;
+    shape.moveTo(-w + r, -h); shape.lineTo(w - r, -h); shape.quadraticCurveTo(w, -h, w, -h + r); shape.lineTo(w, h - r); shape.quadraticCurveTo(w, h, w - r, h);
+    shape.lineTo(-w + r, h); shape.quadraticCurveTo(-w, h, -w, h - r); shape.lineTo(-w, -h + r); shape.quadraticCurveTo(-w, -h, -w + r, -h);
+    const body = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: PD, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04, bevelSegments: 3, curveSegments: 10 }),
+      new THREE.MeshStandardMaterial({ color: 0x1c2333, metalness: 0.85, roughness: 0.28 }));
+    body.position.z = -PD / 2; spin.add(body);
+    const stripMat = new THREE.MeshBasicMaterial({ color: 0x8fb0ff, transparent: true, opacity: 0.9, toneMapped: false });
+    const rim = new THREE.Mesh(new THREE.ShapeGeometry(shape), stripMat); rim.scale.set(1.025, 1.018, 1); rim.position.z = -PD / 2 - 0.05; spin.add(rim);
+    const rimBack = rim.clone(); rimBack.position.z = PD / 2 + 0.05; rimBack.rotation.y = Math.PI; spin.add(rimBack);
+
+    // screens (front and back show the current page) — square, in the upper part of the phone
+    const SS = 2.35, SY = 0.42;
+    const screenFront = new THREE.MeshBasicMaterial({ map: textures[0], toneMapped: false, color: 0x4d4d4d });
+    const screenBack = new THREE.MeshBasicMaterial({ map: textures[0], toneMapped: false, color: 0x4d4d4d });
+    const sf = new THREE.Mesh(new THREE.PlaneGeometry(SS, SS), screenFront); sf.position.set(0, SY, PD / 2 + 0.045); spin.add(sf);
+    const sb = new THREE.Mesh(new THREE.PlaneGeometry(SS, SS), screenBack); sb.position.set(0, SY, -PD / 2 - 0.045); sb.rotation.y = Math.PI; spin.add(sb);
+    // camera notch + home bar
+    const dark = new THREE.MeshBasicMaterial({ color: 0x07080b });
+    [PD / 2 + 0.046, -PD / 2 - 0.046].forEach((z, k) => {
+      const notch = new THREE.Mesh(new THREE.CircleGeometry(0.07, 16), dark); notch.position.set(0, h - 0.22, z); if (k) notch.rotation.y = Math.PI; spin.add(notch);
+      const bar = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.06), new THREE.MeshBasicMaterial({ color: 0x8fb0ff })); bar.position.set(0, -h + 0.18, z); if (k) bar.rotation.y = Math.PI; spin.add(bar);
+    });
+    // app icons row (original monograms, not logos): WhatsApp, Telegram, email, LinkedIn
+    const icon = (txt, bg) => { const c = document.createElement("canvas"); c.width = c.height = 256; const x = c.getContext("2d"); x.fillStyle = bg; roundRect(x, 16, 16, 224, 224, 60); x.fill(); x.fillStyle = "#fff"; x.textAlign = "center"; x.textBaseline = "middle"; x.font = font(800, txt.length > 1 ? 104 : 130); x.fillText(txt, 128, 136); return canvasTexture(c, aniso); };
+    const icons = [["WA", "#25B862"], ["TG", "#2A9FD8"], ["@", "#E59A2E"], ["in", "#3D6FD8"]].map(([t, c], k) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshBasicMaterial({ map: icon(t, c), transparent: true, toneMapped: false }));
+      m.position.set(-0.84 + k * 0.56, -1.2, PD / 2 + 0.05); spin.add(m); return m;
+    });
+    // signal waves rising from the phone
+    const waves = [0, 1, 2].map(() => { const wv = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.03, 8, 40, Math.PI), new THREE.MeshBasicMaterial({ color: 0x5b8cff, transparent: true, opacity: 0.8, toneMapped: false })); wv.position.y = h + 0.25; holder.add(wv); return wv; });
+    const halo = new THREE.Mesh(new THREE.BoxGeometry(PW * 1.1, PH * 1.06, 0.6), new THREE.MeshBasicMaterial({ color: 0x5b8cff, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.BackSide }));
+    spin.add(halo);
+    const orbit = new THREE.Group(); holder.add(orbit);                      // (kept for the shared update loop)
+
+    // pedestal (same as the cubes)
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(CUBE * 0.36, CUBE * 0.43, 0.2, 6), new THREE.MeshStandardMaterial({ color: 0x151a26, metalness: 0.7, roughness: 0.3, emissive: 0xffb547, emissiveIntensity: 0.2 }));
+    pad.position.y = 0.1; grp.add(pad);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(CUBE * 0.37, CUBE * 0.41, 6), new THREE.MeshBasicMaterial({ color: 0xffb547, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.21; grp.add(ring);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(CUBE * 0.22, CUBE * 0.32, BASE, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0xffb547, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    beam.position.y = 0.2 + BASE / 2; grp.add(beam);
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(CUBE * 1.6, CUBE * 1.6), new THREE.MeshBasicMaterial({ map: glowTexture("rgba(255,181,71,0.45)"), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = 0.05; grp.add(pool);
+
+    grp.traverse((o) => { o.userData.stop = i; o.userData.cube = true; });
+    scene.add(grp);
+    this.w.solids.push({ x: center.x, z: center.z, r: CUBE * 0.62 + 0.4 });
+    return { grp, holder, spin, orbit, halo, stripMat, mats: [screenFront, screenBack], canvases, textures, center: center.clone().setY(holder.position.y), baseY: holder.position.y, phase: i * 1.7, turn: 0, visited: false, phone: true, waves, icons, screens: [screenFront, screenBack] };
+  }
+
   /** Index (0–3) of the face currently turned toward the camera. */
   face(i) { const c = this.items[i]; return c ? ((c.turn % 4) + 4) % 4 : 0; }
 
@@ -117,6 +187,17 @@ export class InfoCubes {
   turn(i, steps) {
     const c = this.items[i]; if (!c) return;
     c.turn += steps;
+    if (c.phone) {                                                   // flip half a turn, swap the page mid-flip
+      const tex = c.textures[this.face(i)];
+      const from = c.spin.rotation.y, to = Math.round(from / Math.PI) * Math.PI + Math.PI;
+      if (!reduce) {
+        anime.remove(c.spin.rotation);
+        let swapped = false;
+        anime({ targets: c.spin.rotation, y: to, duration: 900, easing: "easeInOutCubic", update: (a) => { if (!swapped && a.progress >= 50) { swapped = true; c.screens.forEach((m) => { m.map = tex; }); } } });
+      } else { c.spin.rotation.y = to; c.screens.forEach((m) => { m.map = tex; }); }
+      this.w.emit("face", { stop: i, face: this.face(i) });
+      return;
+    }
     const target = -c.turn * TURN;
     if (!reduce) {
       anime.remove(c.spin.rotation);
@@ -141,7 +222,8 @@ export class InfoCubes {
       this.tint(c, 1);
       if (!c.visited) { c.spin.rotation.y %= Math.PI * 2; c.turn = 0; }
       const back = (4 - (c.turn % 4)) % 4;
-      this.turn(i, c.visited ? back : 4);
+      if (c.phone) { if (back || !c.visited) this.turn(i, back || 4); }
+      else this.turn(i, c.visited ? back : 4);
       if (!c.visited && !reduce) {
         anime.remove(c.holder.scale);
         anime({ targets: c.holder.scale, x: [0.4, 1], y: [0.4, 1], z: [0.4, 1], duration: 1300, easing: "easeOutElastic(1, .6)" });
@@ -156,7 +238,12 @@ export class InfoCubes {
       if (!reduce) c.orbit.rotation.y += dt * (still ? 0.5 : 0.2);
       c.holder.position.y = c.baseY + (reduce || still ? 0 : Math.sin(now / 1100 + c.phase) * 0.14);
       c.holder.rotation.x = reduce || still ? 0 : Math.sin(now / 1700 + c.phase) * 0.04;
-      if (!c.visited && !reduce) c.spin.rotation.y += dt * 0.25;     // waiting cubes idle-spin
+      if (!c.visited && !reduce && !c.phone) c.spin.rotation.y += dt * 0.25;     // waiting cubes idle-spin
+      if (c.phone) {
+        if (!c.visited && !reduce) c.spin.rotation.y = Math.sin(now / 1600) * 0.35;   // waiting phone sways
+        c.waves.forEach((wv, k) => { const u = ((now / 1600 + k / 3) % 1); wv.scale.setScalar(0.6 + u * 1.6); wv.position.y = 4.05 / 2 + 0.15 + u * 0.55; wv.material.opacity = (1 - u) * 0.8; });
+        c.icons.forEach((m, k) => { m.position.z = 0.13 + 0.05 + (reduce ? 0 : 0.04 * Math.max(0, Math.sin(now / 300 - k))); });
+      }
     });
   }
 
@@ -241,16 +328,18 @@ export class InfoCubes {
       if (f === 3) { heading("ALWAYS"); x.font = font(800, 120); x.fillStyle = "#F2F3F5"; wrapText(x, "learning the next tool.", P, P + 280, W, 126, 4); }
     } else {
       if (f === 0) { chip(x, "DESTINATION", P, P + 6, "#FFB547", "#07080B"); fitTitle(x, [{ text: "Let’s" }, { text: "build your" }, { text: "next one.", accent: true }], P, P + 300, W, 150); }
-      if (f === 1 || f === 2) {
-        heading(f === 1 ? "REACH ME" : "FIND ME");
-        const rows = f === 1 ? [["EMAIL", profile.email], ["LINKEDIN", profile.linkedin.label]] : [["GITHUB", profile.github.label], ["BASED IN", profile.location]];
+      if (f >= 1) {
+        heading(["", "MESSAGE ME", "REACH ME", "FIND ME"][f]);
+        const rows = [null,
+          [["WHATSAPP", profile.whatsapp.label], ["TELEGRAM", profile.telegram.label]],
+          [["EMAIL", profile.email], ["LINKEDIN", profile.linkedin.label]],
+          [["GITHUB", profile.github.label], ["BASED IN", profile.location]]][f];
         rows.forEach(([label, value], k) => {
           const by = P + 110 + k * 380; card(x, P, by, W, 340);
-          x.font = font(500, 30, true); x.fillStyle = "#A2A8B3"; x.fillText(label, P + 40, by + 80);
-          x.font = font(700, 56); x.fillStyle = "#F2F3F5"; wrapText(x, value, P + 40, by + 170, W - 80, 66, 2);
+          x.font = font(500, 30, true); x.fillStyle = label === "WHATSAPP" ? "#38D98A" : label === "TELEGRAM" ? "#5BC0F0" : "#A2A8B3"; x.fillText(label, P + 40, by + 80);
+          x.font = font(700, 60); x.fillStyle = "#F2F3F5"; wrapText(x, value, P + 40, by + 175, W - 80, 68, 2);
         });
       }
-      if (f === 3) { heading("CONTACT"); x.font = font(800, 104); x.fillStyle = "#F2F3F5"; wrapText(x, "Use the panel to copy or open.", P, P + 260, W, 112, 5); }
     }
     c.textures[f].needsUpdate = true;
   }

@@ -16,7 +16,7 @@ export const FACE_LABELS = {
   intro: ["Hello", "About me", "How to drive", "Tip"],
   job: ["Overview", "What I did", "Impact", "Tools used"],
   stack: ["Toolchain", "Platform", "Delivery", "Always"],
-  contact: ["Contact", "Reach me", "Find me", "Next step"],
+  contact: ["Contact", "Message me", "Reach me", "Find me"],
 };
 
 export const stopName = (s) => (s.job ? clean(s.job.kind || s.job.company) : s.label);
